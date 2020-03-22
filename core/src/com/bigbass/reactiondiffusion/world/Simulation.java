@@ -13,7 +13,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 public class Simulation {
-	public static final int SIZE = 514;
+	public static int WIDTH = 514, HEIGHT = 514;
 	private Grid gridActive;
 	private Grid gridTemp;
 	
@@ -42,22 +42,27 @@ public class Simulation {
 	private boolean isRecording;
 
 	public Simulation(){
-		gridActive = new Grid(150, 50, SIZE, SIZE);
-		gridTemp = new Grid(150, 50, SIZE, SIZE);
+		gridActive = new Grid(WIDTH, HEIGHT);
+		gridTemp = new Grid(WIDTH, HEIGHT);
 		png8 = new PNG8();
 		png8.palette = new PaletteReducer();
 		pixmaps = new Array<>(128);
-		current = new Pixmap(SIZE, SIZE, Pixmap.Format.RGBA8888);
+		current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
 		isRecording = true;
-//		gifBatch = new SpriteBatch();
-//		gifRecorder = new GifRecorder(gifBatch);
-//		gifRecorder.setGUIDisabled(true);
-//		gifRecorder.open();
-//		gifRecorder.setBounds(150 - 400, 50 - 300, SIZE, SIZE);
-//		gifRecorder.setFPS(10);
-//		gifRecorder.setSpeedMultiplier(4f);
-//		gifRecorder.startRecording(); // Remove this to try recording
-		
+		pool = ForkJoinPool.commonPool();
+	}
+
+	public Simulation(Pixmap pm){
+		WIDTH = pm.getWidth();
+		HEIGHT = pm.getHeight();
+		gridActive = new Grid(pm);
+		gridTemp = new Grid(pm);
+		png8 = new PNG8();
+		png8.setFlipY(false);
+		png8.palette = new PaletteReducer();
+		pixmaps = new Array<>(128);
+		current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
+		isRecording = true;
 		pool = ForkJoinPool.commonPool();
 	}
 	
@@ -86,7 +91,7 @@ public class Simulation {
 				if(isRecording){
 					pixmaps.add(current);
 					if(pixmaps.size < 100) 
-						current = new Pixmap(SIZE, SIZE, Pixmap.Format.RGBA8888);
+						current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
 				}
 			}
 			
@@ -124,10 +129,10 @@ public class Simulation {
 //		}
 	}
 	
-	public float laplacianA(int x, int y){
-		return -gridActive.cells[x][y].a + 
-				(gridActive.cells[x - 1][y].a + gridActive.cells[x + 1][y].a +  gridActive.cells[x][y - 1].a + gridActive.cells[x][y + 1].a) * adj +
-				(gridActive.cells[x - 1][y - 1].a + gridActive.cells[x - 1][y + 1].a + gridActive.cells[x + 1][y - 1].a + gridActive.cells[x + 1][y + 1].a) * diag;
+	public float laplacianA(int x, int y, int c){
+		return -gridActive.cells[x][y].a[c] + 
+				(gridActive.cells[x - 1][y].a[c] + gridActive.cells[x + 1][y].a[c] +  gridActive.cells[x][y - 1].a[c] + gridActive.cells[x][y + 1].a[c]) * adj +
+				(gridActive.cells[x - 1][y - 1].a[c] + gridActive.cells[x - 1][y + 1].a[c] + gridActive.cells[x + 1][y - 1].a[c] + gridActive.cells[x + 1][y + 1].a[c]) * diag;
 	}
 	
 	public float laplacianB(int x, int y){
@@ -183,11 +188,16 @@ public class Simulation {
 					for (int j = starty; j < endy; j++) {
 						Cell c = active.cells[i][j];
 						Cell t = tmp.cells[i][j];
-
-						final float abb = (c.a * c.b * c.b);
-						t.a = MathUtils.clamp(c.a + (dA * laplacianA(i, j)) - abb + (feed * (1 - c.a)), 0f, 1f);
-						t.b = MathUtils.clamp(c.b + (dB * laplacianB(i, j)) + abb - ((kill + feed) * c.b), 0f, 1f);
-						
+						t.b = 0f;
+						for (int channel = 0; channel < 3; channel++) {
+//							final float abb = (c.a[channel] * c.b * c.b);
+//							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel))  + abb - ((kill + feed) * c.a[channel]), 0f, 1f);
+//							t.b += MathUtils.clamp(c.b + (dB * laplacianB(i, j)) - abb + (feed * (1 - c.b)), 0f, 1f) / 3f;
+							final float abb = (c.a[channel] * c.b * c.b);
+							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel)) - abb + (feed * (1 - c.a[channel])), 0f, 1f);
+							t.b += MathUtils.clamp(c.b + (dB * laplacianB(i, j)) + abb - ((kill + feed) * c.b), 0f, 1f) / 3f;
+						}
+						t.b = MathUtils.clamp(t.b, 0f, 1f);
 						t.updateColor();
 					}
 				}

@@ -2,9 +2,8 @@ package com.bigbass.reactiondiffusion;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.GL20;
 import com.bigbass.reactiondiffusion.panel.PanelGroup;
 import com.bigbass.reactiondiffusion.panel.PrimaryPanel;
@@ -14,8 +13,6 @@ public class Main extends ApplicationAdapter {
 	public static final InputMultiplexer inputMultiplexer = new InputMultiplexer();
 	
 	private PanelGroup panels;
-	
-	private boolean isScreenshotReady = false;
 	
 	@Override
 	public void create () {
@@ -47,15 +44,7 @@ public class Main extends ApplicationAdapter {
 		
 		panels.update(delta);
 		
-		Input input = Gdx.input;
-		if(input.isKeyPressed(Keys.S) && isScreenshotReady){
-			ScreenshotFactory.saveScreen();
-			isScreenshotReady = false;
-		} else if(!input.isKeyPressed(Keys.S) && !isScreenshotReady){
-			isScreenshotReady = true;
-		}
-		
-		if(input.isKeyJustPressed(Keys.ESCAPE)){
+		if(Gdx.input.isKeyJustPressed(Keys.ESCAPE)){
 			Gdx.app.exit();
 		}
 	}

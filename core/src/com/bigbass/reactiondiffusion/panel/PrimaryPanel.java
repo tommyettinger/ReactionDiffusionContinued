@@ -52,15 +52,16 @@ public class PrimaryPanel extends Panel {
 		infoLabel = new Label("", SkinManager.getSkin("fonts/droid-sans-mono.ttf", 10));
 		infoLabel.setColor(Color.WHITE);
 		stage.addActor(infoLabel);
+
+		sim = new Simulation(new Pixmap(Gdx.files.internal("Cat_Portrait.png")));
 		
-		sr = new ShapeRenderer(514 * 514);
+		sr = new ShapeRenderer(Simulation.WIDTH * Simulation.HEIGHT);
 		sr.setAutoShapeType(true);
 		sr.setProjectionMatrix(cam.combined);
-		texture = new Texture(Simulation.SIZE, Simulation.SIZE, Pixmap.Format.RGBA8888);
+		texture = new Texture(Simulation.WIDTH, Simulation.HEIGHT, Pixmap.Format.RGBA8888);
 		Image image = new Image(texture);
 		image.setPosition(0, 0);
 		stage.addActor(image);
-		sim = new Simulation();
 	}
 	
 	public void render() {
