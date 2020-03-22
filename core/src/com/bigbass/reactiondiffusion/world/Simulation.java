@@ -22,7 +22,7 @@ public class Simulation {
 	private float feed = 0.0375f;
 	private float kill = 0.062f;
 	
-	private int stepsPerFrame = 70; // Decrease if FPS is too low. Controls the number of generations per frame
+	private int stepsPerFrame = 50; // Decrease if FPS is too low. Controls the number of generations per frame
 	
 	private float adj = 0.2f;
 	private float diag = 0.05f;
@@ -90,7 +90,7 @@ public class Simulation {
 				}
 				if(isRecording){
 					pixmaps.add(current);
-					if(pixmaps.size < 100) 
+					if(pixmaps.size < 60) 
 						current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
 				}
 			}
@@ -102,7 +102,7 @@ public class Simulation {
 			
 			generations += 1;
 		}
-		if(isRecording && pixmaps.size >= 100){
+		if(isRecording && pixmaps.size >= 60){
 			isRecording = false;
 			Gdx.files.local("pngexport").mkdirs();
 			FileHandle file = Gdx.files.local("pngexport/recording"+(TimeUtils.millis() / 1000L)+".png");
@@ -135,10 +135,10 @@ public class Simulation {
 				(gridActive.cells[x - 1][y - 1].a[c] + gridActive.cells[x - 1][y + 1].a[c] + gridActive.cells[x + 1][y - 1].a[c] + gridActive.cells[x + 1][y + 1].a[c]) * diag;
 	}
 	
-	public float laplacianB(int x, int y){
-		return -gridActive.cells[x][y].b + 
-				(gridActive.cells[x - 1][y].b + gridActive.cells[x + 1][y].b +  gridActive.cells[x][y - 1].b + gridActive.cells[x][y + 1].b) * adj +
-				(gridActive.cells[x - 1][y - 1].b + gridActive.cells[x - 1][y + 1].b + gridActive.cells[x + 1][y - 1].b + gridActive.cells[x + 1][y + 1].b) * diag;
+	public float laplacianB(int x, int y, int c){
+		return -gridActive.cells[x][y].b[c] +
+			(gridActive.cells[x - 1][y].b[c] + gridActive.cells[x + 1][y].b[c] +  gridActive.cells[x][y - 1].b[c] + gridActive.cells[x][y + 1].b[c]) * adj +
+			(gridActive.cells[x - 1][y - 1].b[c] + gridActive.cells[x - 1][y + 1].b[c] + gridActive.cells[x + 1][y - 1].b[c] + gridActive.cells[x + 1][y + 1].b[c]) * diag;
 	}
 	
 	public int getGenerations(){
@@ -188,16 +188,14 @@ public class Simulation {
 					for (int j = starty; j < endy; j++) {
 						Cell c = active.cells[i][j];
 						Cell t = tmp.cells[i][j];
-						t.b = 0f;
 						for (int channel = 0; channel < 3; channel++) {
 //							final float abb = (c.a[channel] * c.b * c.b);
 //							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel))  + abb - ((kill + feed) * c.a[channel]), 0f, 1f);
 //							t.b += MathUtils.clamp(c.b + (dB * laplacianB(i, j)) - abb + (feed * (1 - c.b)), 0f, 1f) / 3f;
-							final float abb = (c.a[channel] * c.b * c.b);
+							final float abb = (c.a[channel] * c.b[channel] * c.b[channel]);
 							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel)) - abb + (feed * (1 - c.a[channel])), 0f, 1f);
-							t.b += MathUtils.clamp(c.b + (dB * laplacianB(i, j)) + abb - ((kill + feed) * c.b), 0f, 1f) / 3f;
+							t.b[channel] = MathUtils.clamp(c.b[channel] + (dB * laplacianB(i, j, channel)) + abb - ((kill + feed) * c.b[channel]), 0f, 1f);
 						}
-						t.b = MathUtils.clamp(t.b, 0f, 1f);
 						t.updateColor();
 					}
 				}
