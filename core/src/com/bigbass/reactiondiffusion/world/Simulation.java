@@ -7,77 +7,67 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.TimeUtils;
+import com.github.tommyettinger.anim8.AnimatedGif;
+import com.github.tommyettinger.anim8.Dithered;
+import com.github.tommyettinger.anim8.PaletteReducer;
 
-import java.io.IOException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 public class Simulation {
-	public static int WIDTH = 514, HEIGHT = 514;
+	public static final int SIZE = 514;
 	private Grid gridActive;
 	private Grid gridTemp;
-	
+
 	private float dA = 1.0f;
 	private float dB = 0.5f;
 	private float feed = 0.0375f;
 	private float kill = 0.062f;
-	
-	private int stepsPerFrame = 50; // Decrease if FPS is too low. Controls the number of generations per frame
-	
+
+	private int stepsPerFrame = 70; // Decrease if FPS is too low. Controls the number of generations per frame
+
 	private float adj = 0.2f;
 	private float diag = 0.05f;
-	
+
 	private int generations = 0;
-	
+
 	private boolean isRendering = false;
-	
+
 //	private SpriteBatch gifBatch;
 //	private GifRecorder gifRecorder;
-	
+
 	private ForkJoinPool pool;
-	
-	private PNG8 png8;
+
+	private AnimatedGif gif;
 	public Array<Pixmap> pixmaps;
 	public Pixmap current;
 	private boolean isRecording;
 
 	public Simulation(){
-		gridActive = new Grid(WIDTH, HEIGHT);
-		gridTemp = new Grid(WIDTH, HEIGHT);
-		png8 = new PNG8();
-		png8.palette = new PaletteReducer();
+		gridActive = new Grid(150, 50, SIZE, SIZE);
+		gridTemp = new Grid(150, 50, SIZE, SIZE);
+		gif = new AnimatedGif();
+		int[] palette = new int[256];
+		for (int i = 1; i < 256; i++) {
+			palette[i] = 0x01010100 * i | 0xFF;
+		}
+		gif.palette = new PaletteReducer(palette);
+		gif.setDitherAlgorithm(Dithered.DitherAlgorithm.NONE);
 		pixmaps = new Array<>(128);
-		current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
+		current = new Pixmap(SIZE, SIZE, Pixmap.Format.RGBA8888);
 		isRecording = true;
 		pool = ForkJoinPool.commonPool();
 	}
 
-	public Simulation(Pixmap pm){
-		WIDTH = pm.getWidth();
-		HEIGHT = pm.getHeight();
-		gridActive = new Grid(pm);
-		gridTemp = new Grid(pm);
-		png8 = new PNG8();
-		png8.setFlipY(false);
-		png8.palette = new PaletteReducer();
-		pixmaps = new Array<>(128);
-		current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
-		isRecording = true;
-		pool = ForkJoinPool.commonPool();
-	}
-	
 	public void updateAndRender(){
 		isRendering = !Gdx.input.isKeyPressed(Keys.SPACE); // Disable rendering by holding SPACE
-		
-//		if(isRendering){
-//			sr.begin(ShapeType.Line);
-//		}
+
 		for(int z = 0; z < stepsPerFrame; z++){
-			
+
 			UpdateWorld wu = new UpdateWorld(gridTemp, gridActive, 1, gridTemp.cells.length - 1, 1, gridTemp.cells[1].length - 1);
 			pool.execute(wu);
 			wu.join();
-			
+
 			if(isRendering && z == stepsPerFrame - 1){
 				for (int i = 1; i < gridTemp.cells.length - 1; i++) {
 					for (int j = 1; j < gridTemp.cells[i].length; j++) {
@@ -90,69 +80,48 @@ public class Simulation {
 				}
 				if(isRecording){
 					pixmaps.add(current);
-					if(pixmaps.size < 60) 
-						current = new Pixmap(WIDTH, HEIGHT, Pixmap.Format.RGBA8888);
+					if(pixmaps.size < 100)
+						current = new Pixmap(SIZE, SIZE, Pixmap.Format.RGBA8888);
 				}
 			}
-			
+
 			// Copy gridTemp data into gridActive
 			Grid swap = gridActive;
 			gridActive = gridTemp;
 			gridTemp = swap;
-			
+
 			generations += 1;
 		}
-		if(isRecording && pixmaps.size >= 60){
+		if(isRecording && pixmaps.size >= 90){
 			isRecording = false;
-			Gdx.files.local("pngexport").mkdirs();
-			FileHandle file = Gdx.files.local("pngexport/recording"+(TimeUtils.millis() / 1000L)+".png");
-			
-			try {
-				png8.write(file, pixmaps, 30, false);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			Gdx.files.local("gifexport").mkdirs();
+			FileHandle file = Gdx.files.local("gifexport/recording"+(TimeUtils.millis() / 1000L)+".gif");
+			gif.write(file, pixmaps, 30);
 		}
-		
-//		if(isRendering){
-//			sr.end();
-//			
-//			if(gifRecorder.isRecording() && generations % (stepsPerFrame + 2) < stepsPerFrame){ // record new frame every n generations
-//				//gifRecorder.setFPS(Gdx.graphics.getFramesPerSecond() < 15 ? 15 : Gdx.graphics.getFramesPerSecond() - 5);
-//				gifRecorder.update();
-//			}
-//		}
-//		
-//		if(gifRecorder.isRecording() && Gdx.input.isKeyPressed(Keys.P)){
-//			gifRecorder.finishRecording();
-//			gifRecorder.writeGIF();
-//		}
 	}
-	
-	public float laplacianA(int x, int y, int c){
-		return -gridActive.cells[x][y].a[c] + 
-				(gridActive.cells[x - 1][y].a[c] + gridActive.cells[x + 1][y].a[c] +  gridActive.cells[x][y - 1].a[c] + gridActive.cells[x][y + 1].a[c]) * adj +
-				(gridActive.cells[x - 1][y - 1].a[c] + gridActive.cells[x - 1][y + 1].a[c] + gridActive.cells[x + 1][y - 1].a[c] + gridActive.cells[x + 1][y + 1].a[c]) * diag;
+
+	public float laplacianA(int x, int y){
+		return -gridActive.cells[x][y].a +
+				(gridActive.cells[x - 1][y].a + gridActive.cells[x + 1][y].a +  gridActive.cells[x][y - 1].a + gridActive.cells[x][y + 1].a) * adj +
+				(gridActive.cells[x - 1][y - 1].a + gridActive.cells[x - 1][y + 1].a + gridActive.cells[x + 1][y - 1].a + gridActive.cells[x + 1][y + 1].a) * diag;
 	}
-	
-	public float laplacianB(int x, int y, int c){
-		return -gridActive.cells[x][y].b[c] +
-			(gridActive.cells[x - 1][y].b[c] + gridActive.cells[x + 1][y].b[c] +  gridActive.cells[x][y - 1].b[c] + gridActive.cells[x][y + 1].b[c]) * adj +
-			(gridActive.cells[x - 1][y - 1].b[c] + gridActive.cells[x - 1][y + 1].b[c] + gridActive.cells[x + 1][y - 1].b[c] + gridActive.cells[x + 1][y + 1].b[c]) * diag;
+
+	public float laplacianB(int x, int y){
+		return -gridActive.cells[x][y].b +
+				(gridActive.cells[x - 1][y].b + gridActive.cells[x + 1][y].b +  gridActive.cells[x][y - 1].b + gridActive.cells[x][y + 1].b) * adj +
+				(gridActive.cells[x - 1][y - 1].b + gridActive.cells[x - 1][y + 1].b + gridActive.cells[x + 1][y - 1].b + gridActive.cells[x + 1][y + 1].b) * diag;
 	}
-	
+
 	public int getGenerations(){
 		return generations;
 	}
-	
+
 	public void dispose(){
-//		gifRecorder.finishRecording();
-//		gifRecorder.close();
-//		gifBatch.dispose();
+		for(Pixmap p : pixmaps)
+			p.dispose();
 	}
-	
-	
-	@SuppressWarnings("serial")
+
+
 	private class UpdateWorld extends RecursiveAction {
 		private int threshold = 1024;
 		private Grid tmp;
@@ -188,14 +157,11 @@ public class Simulation {
 					for (int j = starty; j < endy; j++) {
 						Cell c = active.cells[i][j];
 						Cell t = tmp.cells[i][j];
-						for (int channel = 0; channel < 3; channel++) {
-//							final float abb = (c.a[channel] * c.b * c.b);
-//							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel))  + abb - ((kill + feed) * c.a[channel]), 0f, 1f);
-//							t.b += MathUtils.clamp(c.b + (dB * laplacianB(i, j)) - abb + (feed * (1 - c.b)), 0f, 1f) / 3f;
-							final float abb = (c.a[channel] * c.b[channel] * c.b[channel]);
-							t.a[channel] = MathUtils.clamp(c.a[channel] + (dA * laplacianA(i, j, channel)) - abb + (feed * (1 - c.a[channel])), 0f, 1f);
-							t.b[channel] = MathUtils.clamp(c.b[channel] + (dB * laplacianB(i, j, channel)) + abb - ((kill + feed) * c.b[channel]), 0f, 1f);
-						}
+
+						final float abb = (c.a * c.b * c.b);
+						t.a = MathUtils.clamp(c.a + (dA * laplacianA(i, j)) - abb + (feed * (1 - c.a)), 0f, 1f);
+						t.b = MathUtils.clamp(c.b + (dB * laplacianB(i, j)) + abb - ((kill + feed) * c.b), 0f, 1f);
+
 						t.updateColor();
 					}
 				}
