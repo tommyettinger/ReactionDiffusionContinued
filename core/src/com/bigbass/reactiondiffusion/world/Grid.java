@@ -27,8 +27,9 @@ public class Grid {
 				}*/
 		for(int i = 1; i < width - 1; i++){
 			for(int j = 1; j < height - 1; j++){
-				if((RAND.nextLong() & 0x3FFL) == 0){
-					cells[i][j].b = cells[width - 1 - i][j].b =
+				if((RAND.nextLong() & 0x1FFL) == 0){
+					cells[i][j].b =
+							cells[width - 1 - i][j].b =
 							cells[i][height - 1 - j].b = cells[width - 1 - i][height - 1 - j].b =
 									cells[j][i].b = cells[width - 1 - j][i].b =
 											cells[j][height - 1 - i].b = cells[width - 1 - j][height - 1 - i].b =

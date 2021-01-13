@@ -15,7 +15,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 public class Simulation {
-	public static final int SIZE = 514;
+	public static final int SIZE = 512; // MUST BE A POWER OF TWO
 	private Grid gridActive;
 	private Grid gridTemp;
 
@@ -24,7 +24,7 @@ public class Simulation {
 	private float feed = 0.0375f;
 	private float kill = 0.062f;
 
-	private int stepsPerFrame = 70; // Decrease if FPS is too low. Controls the number of generations per frame
+	private int stepsPerFrame = 40; // Decrease if FPS is too low. Controls the number of generations per frame
 
 	private float adj = 0.2f;
 	private float diag = 0.05f;
@@ -70,7 +70,7 @@ public class Simulation {
 
 			if(isRendering && z == stepsPerFrame - 1){
 				for (int i = 1; i < gridTemp.cells.length - 1; i++) {
-					for (int j = 1; j < gridTemp.cells[i].length; j++) {
+					for (int j = 1; j < gridTemp.cells[i].length - 1; j++) {
 						Cell t = gridTemp.cells[i][j];
 						current.setColor(t.red, t.green, t.blue, 1f);
 						current.drawPixel(i, j);
@@ -101,15 +101,15 @@ public class Simulation {
 	}
 
 	public float laplacianA(int x, int y){
-		return -gridActive.cells[x][y].a +
-				(gridActive.cells[x - 1][y].a + gridActive.cells[x + 1][y].a +  gridActive.cells[x][y - 1].a + gridActive.cells[x][y + 1].a) * adj +
-				(gridActive.cells[x - 1][y - 1].a + gridActive.cells[x - 1][y + 1].a + gridActive.cells[x + 1][y - 1].a + gridActive.cells[x + 1][y + 1].a) * diag;
+		return -gridActive.cells[x][y].a
+				+ (gridActive.cells[x - 1][y].a + gridActive.cells[x + 1][y].a +  gridActive.cells[x][y - 1].a + gridActive.cells[x][y + 1].a) * adj
+				+ (gridActive.cells[x - 1][y - 1].a + gridActive.cells[x - 1][y + 1].a + gridActive.cells[x + 1][y - 1].a + gridActive.cells[x + 1][y + 1].a) * diag;
 	}
 
 	public float laplacianB(int x, int y){
-		return -gridActive.cells[x][y].b +
-				(gridActive.cells[x - 1][y].b + gridActive.cells[x + 1][y].b +  gridActive.cells[x][y - 1].b + gridActive.cells[x][y + 1].b) * adj +
-				(gridActive.cells[x - 1][y - 1].b + gridActive.cells[x - 1][y + 1].b + gridActive.cells[x + 1][y - 1].b + gridActive.cells[x + 1][y + 1].b) * diag;
+		return -gridActive.cells[x][y].b
+				+ (gridActive.cells[x - 1][y].b + gridActive.cells[x + 1][y].b +  gridActive.cells[x][y - 1].b + gridActive.cells[x][y + 1].b) * adj
+				+ (gridActive.cells[x - 1][y - 1].b + gridActive.cells[x - 1][y + 1].b + gridActive.cells[x + 1][y - 1].b + gridActive.cells[x + 1][y + 1].b) * diag;
 	}
 
 	public int getGenerations(){
